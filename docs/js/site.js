@@ -14,6 +14,13 @@
       btn.setAttribute('aria-expanded', open);
     });
   }
+  const head = document.querySelector('.site-head');
+  if (head) {
+    const onScroll = () => head.classList.toggle('scrolled', scrollY > 4 || (nav && nav.classList.contains('open')));
+    addEventListener('scroll', onScroll, { passive: true });
+    if (btn) btn.addEventListener('click', onScroll);
+    onScroll();
+  }
 
   /* ---------- Click-to-load YouTube ---------- */
   document.querySelectorAll('.video[data-yt]').forEach(el => {
@@ -106,8 +113,8 @@
       .attr('x', d => x(d)).attr('y', gy + 20).attr('text-anchor', 'middle').text(d => d + '°');
     svg.append('text').attr('class', 'axis-title')
       .attr('x', x(130)).attr('y', gy + 44).attr('text-anchor', 'middle')
-      .style('font-size', '11px').style('font-weight', 600).style('letter-spacing', '0.09em')
-      .style('fill', C['ink-2']).text('SURFACE TEMPERATURE (°F)');
+      .style('font-size', '12px').style('font-weight', 600)
+      .style('fill', C['ink-2']).text('Surface temperature (°F)');
 
     // Rows
     const row = svg.selectAll('g.row').data(ROOFS).join('g').attr('class', 'row')
@@ -203,11 +210,11 @@
         .attr('height', H - m.bottom - m.top + 8).attr('fill', C.ink).attr('opacity', 0.045);
     });
     svg.append('text').attr('x', x(3)).attr('y', m.top + 6).attr('text-anchor', 'middle')
-      .style('font-size', '11px').style('font-weight', 600).style('letter-spacing', '0.09em')
-      .style('fill', C['ink-2']).text('NIGHT');
+      .style('font-size', '12px').style('font-weight', 600)
+      .style('fill', C['ink-2']).text('Night');
     svg.append('text').attr('x', x(12.75)).attr('y', m.top + 6).attr('text-anchor', 'middle')
-      .style('font-size', '11px').style('font-weight', 600).style('letter-spacing', '0.09em')
-      .style('fill', C['ink-2']).text('SUN');
+      .style('font-size', '12px').style('font-weight', 600)
+      .style('fill', C['ink-2']).text('Sun');
 
     // Reference lines
     const refs = [
@@ -264,15 +271,12 @@
         });
     }
 
-    // Annotation on the gap
-    const ann = DAY.find(d => d.h >= 10.5);
-    const tx = x(ann.h), ty = (y(ann.air) + y(ann.cryo)) / 2;
+    // Annotation in the open space under the afternoon curves
     if (!narrow) {
-      svg.append('text').attr('x', tx + 10).attr('y', ty + 30)
-        .style('font-size', '12.5px').style('font-weight', 600).style('fill', C.blue)
-        .text('About 15°F below air, day and night');
-      svg.append('line').attr('x1', tx + 8).attr('x2', tx + 1).attr('y1', ty + 20).attr('y2', ty + 2)
-        .attr('stroke', C.blue).attr('stroke-width', 1);
+      const t = svg.append('text').attr('x', x(16)).attr('y', y(0.33)).attr('text-anchor', 'middle')
+        .style('font-size', '12.5px').style('font-weight', 600).style('fill', C.blue);
+      t.append('tspan').attr('x', x(16)).text('CryoPaint surfaces stay at ~15°F');
+      t.append('tspan').attr('x', x(16)).attr('dy', 17).text('below air temp, day and night');
     }
 
     // Time axis
@@ -289,79 +293,88 @@
   /* ---------- How radiative cooling works (diagram) ---------- */
   responsive('#how-diagram', (el, W) => {
     const narrow = W < 520;
-    const H = narrow ? 380 : Math.round(W * 0.62);
-    const ground = H - (narrow ? 64 : 76);
-    const atmoY = ground - (narrow ? 70 : 92);
+    const H = narrow ? 400 : Math.max(380, Math.min(460, Math.round(W * 0.74)));
+    const ground = H - 56;                     // top of the painted surface
+    const atmo = ground - Math.round(H * 0.28); // top of the atmosphere band
+    const fs = narrow ? 11.5 : 13;
     const svg = d3.select(el).html('').append('svg')
       .attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`)
       .attr('role', 'img')
-      .attr('aria-label', 'Diagram: CryoPaint reflects incoming sunlight and radiates heat at 8 to 13 micrometers through the atmosphere to deep space.');
+      .attr('aria-label', 'Diagram: sunlight hits the CryoPaint surface and 94% is reflected. Heat in the surface radiates at 8 to 13 micrometers straight through the atmosphere to deep space, while other infrared is absorbed by the atmosphere.');
     const defs = svg.append('defs');
+    const glow = defs.append('radialGradient').attr('id', 'how-glow');
+    glow.append('stop').attr('offset', 0.3).attr('stop-color', C.orange).attr('stop-opacity', 0.45);
+    glow.append('stop').attr('offset', 1).attr('stop-color', C.orange).attr('stop-opacity', 0);
 
-    const sky = defs.append('linearGradient').attr('id', 'sky').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
-    sky.append('stop').attr('offset', 0).attr('stop-color', C['blue-dark']);
-    sky.append('stop').attr('offset', 0.55).attr('stop-color', C.blue);
-    sky.append('stop').attr('offset', 1).attr('stop-color', C['blue-tint']);
-    const sun = defs.append('radialGradient').attr('id', 'sunglow');
-    sun.append('stop').attr('offset', 0.35).attr('stop-color', C.orange).attr('stop-opacity', 0.55);
-    sun.append('stop').attr('offset', 1).attr('stop-color', C.orange).attr('stop-opacity', 0);
-    const heat = defs.append('radialGradient').attr('id', 'heat');
-    heat.append('stop').attr('offset', 0).attr('stop-color', C.orange).attr('stop-opacity', 0.5);
-    heat.append('stop').attr('offset', 1).attr('stop-color', C.orange).attr('stop-opacity', 0);
-    const arrow = (id, color) => defs.append('marker').attr('id', id).attr('viewBox', '0 0 10 10')
-      .attr('refX', 5).attr('refY', 5).attr('markerWidth', 3.2).attr('markerHeight', 3.2).attr('orient', 'auto-start-reverse')
-      .append('path').attr('d', 'M0,0 L10,5 L0,10 z').attr('fill', color);
-    arrow('a-orange', C.orange); arrow('a-white', '#fff'); arrow('a-light', C.bg);
-
-    svg.append('rect').attr('width', W).attr('height', ground).attr('fill', 'url(#sky)');
-    // Atmosphere band
-    svg.append('rect').attr('x', 0).attr('y', atmoY).attr('width', W).attr('height', ground - atmoY)
-      .attr('fill', C['orange-tint']).attr('opacity', 0.55);
-    // Ground + heat glow
-    svg.append('rect').attr('x', 0).attr('y', ground).attr('width', W).attr('height', H - ground).attr('fill', C.surface);
-    const ux = Math.max(W * 0.3, 150);
-    svg.append('ellipse').attr('cx', ux).attr('cy', ground + 26).attr('rx', W * 0.18).attr('ry', 34).attr('fill', 'url(#heat)');
-    svg.append('rect').attr('x', 0).attr('y', ground - 3).attr('width', W).attr('height', 6).attr('fill', '#fff');
-
-    const fs = narrow ? 11.5 : 13;
     const lab = (x, y, t, o = {}) => svg.append('text').attr('x', x).attr('y', y)
       .attr('text-anchor', o.anchor || 'start').style('font-size', (o.size || fs) + 'px')
-      .style('font-weight', o.weight || 600).style('fill', o.fill || '#fff').text(t);
+      .style('font-weight', o.weight || 600).style('fill', o.fill || C.bg).text(t);
+    const head = (x, y, deg, s, color) => svg.append('path')
+      .attr('d', `M0,0 L${-s},${s * 0.62} L${-s},${-s * 0.62} Z`)
+      .attr('transform', `translate(${x},${y}) rotate(${deg})`).attr('fill', color);
+    // Vertical wave (infrared) from y0 up to y1, ending in a short straight run.
+    const wave = (x, y0, y1, amp, wl) => {
+      const pts = [];
+      for (let y = y0; y >= y1 + 10; y -= 2) pts.push([x + amp * Math.sin(2 * Math.PI * (y0 - y) / wl), y]);
+      pts.push([x, y1]);
+      return d3.line().curve(d3.curveBasis)(pts);
+    };
 
-    lab(14, 24, 'Deep space, about 3 K');
-    lab(14, atmoY + 20, 'Atmosphere', { fill: C['orange-dark'] });
-    lab(14, atmoY + 20 + fs + 4, narrow ? 'absorbs other IR' : 'absorbs other infrared', { fill: C['orange-dark'], weight: 400, size: fs - 1 });
-    lab(ux, ground + 30, 'Heat in the surface', { anchor: 'middle', fill: C['orange-dark'] });
-    lab(W * 0.72, ground + 30, 'CryoPaint reflects 94%', { anchor: 'middle', fill: C.blue });
-
-    // Sun + incoming
-    const sx = W * 0.84, sy = narrow ? 70 : H * 0.16, sr = narrow ? 22 : Math.max(26, W * 0.04);
-    svg.append('circle').attr('cx', sx).attr('cy', sy).attr('r', sr * 3).attr('fill', 'url(#sunglow)');
-    svg.append('circle').attr('cx', sx).attr('cy', sy).attr('r', sr).attr('fill', C.orange);
-    const hitX = W * 0.68;
-    svg.append('line').attr('x1', sx - sr * 0.5).attr('y1', sy + sr * 0.9).attr('x2', hitX + 4).attr('y2', ground - 14)
-      .attr('stroke', C.orange).attr('stroke-width', narrow ? 9 : 12).attr('marker-end', 'url(#a-orange)');
-    lab(sx - sr - 10, sy + sr * 2.6, 'Sunlight in', { anchor: 'end' });
-
-    // Reflected fan
-    [-62, -40, -18, 16, 38].forEach(a => {
-      const r = (narrow ? 64 : 96), rad = (a - 90) * Math.PI / 180;
-      svg.append('line').attr('x1', hitX).attr('y1', ground - 8)
-        .attr('x2', hitX + r * Math.cos(rad)).attr('y2', ground - 8 + r * Math.sin(rad))
-        .attr('stroke', '#fff').attr('stroke-width', 3).attr('stroke-opacity', 0.9).attr('marker-end', 'url(#a-white)');
+    // Bands: space, atmosphere, surface
+    svg.append('rect').attr('width', W).attr('height', atmo).attr('fill', C.ink);
+    svg.append('rect').attr('y', atmo).attr('width', W).attr('height', ground - atmo).attr('fill', C.blue);
+    svg.append('rect').attr('y', ground).attr('width', W).attr('height', H - ground).attr('fill', C.surface);
+    svg.append('rect').attr('y', ground - 2).attr('width', W).attr('height', 5).attr('fill', '#fff');
+    const rnd = d3.randomLcg(7);
+    d3.range(narrow ? 26 : 44).forEach(() => {
+      svg.append('circle').attr('class', 'twinkle').attr('cx', rnd() * W).attr('cy', 8 + rnd() * (atmo - 16))
+        .attr('r', 0.6 + rnd() * 0.9).attr('fill', C.bg)
+        .style('--o', (0.3 + rnd() * 0.4).toFixed(2))
+        .style('animation-duration', (3 + rnd() * 4).toFixed(2) + 's')
+        .style('animation-delay', (-rnd() * 7).toFixed(2) + 's');
     });
 
-    // 8-13 um window to space
-    svg.append('line').attr('x1', ux).attr('y1', ground - 10).attr('x2', ux).attr('y2', narrow ? 52 : 56)
-      .attr('stroke', C.bg).attr('stroke-width', narrow ? 9 : 12).attr('marker-end', 'url(#a-light)');
-    lab(ux + 14, narrow ? 64 : 72, '8–13 µm heat', { size: fs + 1 });
-    lab(ux + 14, (narrow ? 64 : 72) + fs + 4, 'escapes to space', { weight: 400 });
-    // Other IR absorbed in atmosphere
-    const cx0 = ux + 18;
-    svg.append('path')
-      .attr('d', `M${cx0},${ground - 10} Q${cx0 + W * 0.05},${atmoY + 10} ${cx0 + W * 0.13},${atmoY + 6}`)
-      .attr('fill', 'none').attr('stroke', C.bg).attr('stroke-opacity', 0.75).attr('stroke-width', 4)
-      .attr('stroke-dasharray', '2 5').attr('stroke-linecap', 'round');
+    lab(14, 26, 'Deep space, about 3 K');
+    lab(14, atmo + 22, 'Atmosphere');
+    lab(14, atmo + 22 + fs + 5, narrow ? 'absorbs other IR' : 'absorbs other infrared', { weight: 400, size: fs - 1 });
+
+    // Heat in the surface radiates out
+    const hx = Math.max(W * 0.34, 128);
+    svg.append('ellipse').attr('cx', hx + 14).attr('cy', ground + 30).attr('rx', narrow ? 70 : 96).attr('ry', 26).attr('fill', 'url(#how-glow)');
+    lab(hx + 14, ground + 34, 'Heat in the surface', { anchor: 'middle', fill: C['orange-dark'] });
+    const ir = svg.append('g').attr('fill', 'none').attr('stroke', C.orange).attr('stroke-linecap', 'round');
+    ir.append('path').attr('d', wave(hx, ground - 6, 54, 5, 26)).attr('stroke-width', 3.5);
+    head(hx, 46, -90, 12, C.orange);
+    ir.append('path').attr('d', wave(hx + 30, ground - 6, atmo + 22, 5, 26))
+      .attr('stroke-width', 3).attr('stroke-opacity', 0.55);
+    svg.append('circle').attr('cx', hx + 30).attr('cy', atmo + 18).attr('r', 4).attr('fill', C.orange).attr('opacity', 0.55);
+    lab(hx + 18, 54, '8–13 µm heat', { size: fs + 1 });
+    lab(hx + 18, 54 + fs + 5, 'escapes to space', { weight: 400 });
+
+    // Sunlight in, reflected out
+    const sx = W * (narrow ? 0.86 : 0.85), sy = narrow ? 56 : 66, sr = narrow ? 17 : 22;
+    const hitX = W * (narrow ? 0.72 : 0.74), hitY = ground - 3;
+    svg.append('circle').attr('cx', sx).attr('cy', sy).attr('r', sr * 2.8).attr('fill', 'url(#how-glow)');
+    svg.append('circle').attr('cx', sx).attr('cy', sy).attr('r', sr).attr('fill', C.orange);
+    const ang = Math.atan2(hitY - sy, hitX - sx);
+    const ax0 = sx + Math.cos(ang) * (sr + 8), ay0 = sy + Math.sin(ang) * (sr + 8);
+    const ax1 = hitX - Math.cos(ang) * 12, ay1 = hitY - Math.sin(ang) * 12;
+    svg.append('line').attr('x1', ax0).attr('y1', ay0).attr('x2', ax1).attr('y2', ay1)
+      .attr('stroke', C.orange).attr('stroke-width', narrow ? 6 : 8);
+    head(hitX, hitY, ang * 180 / Math.PI, narrow ? 13 : 16, C.orange);
+    const mid = 0.42;
+    lab(ax0 + (ax1 - ax0) * mid - 12, ay0 + (ay1 - ay0) * mid, 'Sunlight in', { anchor: 'end' });
+
+    const L = Math.min(ground - atmo + 24, narrow ? 104 : 128);
+    [-16, -36, -56].forEach((deg, i) => {
+      const r = (deg - 90) * Math.PI / 180, len = L * (1 - i * 0.12);
+      const x2 = hitX + Math.cos(r) * len, y2 = hitY - 8 + Math.sin(r) * len;
+      svg.append('line').attr('x1', hitX + Math.cos(r) * 10).attr('y1', hitY - 8 + Math.sin(r) * 10)
+        .attr('x2', x2 - Math.cos(r) * 8).attr('y2', y2 - Math.sin(r) * 8)
+        .attr('stroke', C.bg).attr('stroke-width', 3).attr('stroke-linecap', 'round');
+      head(x2, y2, deg - 90, 10, C.bg);
+    });
+    lab(narrow ? W - 12 : hitX, ground + 34, 'CryoPaint reflects 94%', { anchor: narrow ? 'end' : 'middle', fill: C.blue });
   });
 
   /* ---------- Customer map ---------- */

@@ -7,6 +7,8 @@ INK, BG = (0x13, 0x25, 0x3F), (0xF4, 0xF2, 0xEE)
 
 logo = Image.open(SRC + 'logo.png').convert('RGBA')
 logo = logo.crop(logo.getbbox())
+logo = logo.crop((0, 0, 692, logo.height))  # drop the ".co" box (starts after the gap at x=692)
+logo = logo.crop(logo.getbbox())
 for name, rgb in (('logo-ink.png', INK), ('logo-light.png', BG)):
     px = [(*rgb, a) for *_, a in logo.getdata()]
     im = Image.new('RGBA', logo.size); im.putdata(px)
